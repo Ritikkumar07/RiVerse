@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stellar Hub - Real-Time Space News & Discovery</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS for ISS Tracker Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f9fcff;
+            color: #e0e0e0;
+        }
+        h1, h2, h3, .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+        }
+        .nav-link {
+            @apply px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-300;
+        }
+        .nav-link.active {
+            @apply bg-cyan-600 text-white;
+        }
+        .section-title {
+            @apply text-3xl md:text-4xl font-bold text-center mb-8 text-cyan-400 tracking-wider;
+        }
+        .loader {
+            border-top-color: #22d3ee;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { -webkit-transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Header & Navigation -->
+    <header class="bg-gray-900/50 backdrop-blur-md sticky top-0 z-50">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-orbitron text-2xl font-bold text-white">🌌 RiVerse</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#home" class="nav-link active">Home</a>
+                        <a href="#launches" class="nav-link">Launches</a>
+                        <a href="#gallery" class="nav-link">Gallery</a>
+                        <a href="#iss-tracker" class="nav-link">ISS Tracker</a>
+                    </div>
+                </div>
+                 <!-- Mobile Menu Button -->
+
+<div class="md:hidden">
+  <button id="mobile-menu-button" 
+          class="relative w-10 h-10 flex flex-col justify-center items-center space-y-1.5">
+      
+      <!-- Line 1 -->
+      <span class="block w-6 h-0.5 bg-black transition-all duration-300 transform"></span>
+      <!-- Line 2 -->
+      <span class="block w-6 h-0.5 bg-black transition-all duration-300 transform"></span>
+      <!-- Line 3 -->
+      <span class="block w-6 h-0.5 bg-black transition-all duration-300 transform"></span>
+  </button>
+</div>
+
+<script>
+  const btn = document.getElementById('mobile-menu-button');
+  const lines = btn.querySelectorAll('span');
+
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('open');
+
+    if (btn.classList.contains('open')) {
+      // Animate to X
+      lines[0].classList.add('rotate-45', 'translate-y-2');
+      lines[1].classList.add('opacity-0');
+      lines[2].classList.add('-rotate-45', '-translate-y-2');
+    } else {
+      // Back to hamburger
+      lines[0].classList.remove('rotate-45', 'translate-y-2');
+      lines[1].classList.remove('opacity-0');
+      lines[2].classList.remove('-rotate-45', '-translate-y-2');
+    }
+  });
+</script>
+            </div>
+        </nav>
+        <!-- Mobile menu, show/hide based on menu state. -->
+        <div class="md:hidden hidden" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#home" class="nav-link block active">Home</a>
+                <a href="#launches" class="nav-link block">Launches</a>
+                <a href="#gallery" class="nav-link block">Gallery</a>
+                <a href="#iss-tracker" class="nav-link block">ISS Tracker</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8">
+        
+        <!-- Page Sections -->
+        <section id="home" class="page-section">
+           <h2 class="section-title" style="color: #ff0000ea;">Space Highlights</h2>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- APOD Column -->
+                <div id="apod-container" class="lg:col-span-2 glass-card p-6"></div>
+                <!-- Side Column -->
+                <div class="space-y-8">
+                    <div id="fact-container" class="glass-card p-6"></div>
+                    <div id="news-container" class="glass-card p-6"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="launches" class="page-section hidden">
+            <h2 class="section-title text-cyan-900">Upcoming & Past Launches</h2>
+            <div id="launches-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+        </section>
+
+        <section id="gallery" class="page-section hidden">
+            <h2 class="section-title text-cyan-900">Media Gallery</h2>
+            <div class="glass-card p-6 mb-8">
+                <input type="search" id="gallery-search" placeholder="Search for planets, nebulas, etc..." class="w-full bg-gray-800 border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            </div>
+            <div id="gallery-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        </section>
+
+        <section id="iss-tracker" class="page-section hidden">
+            <h2 class="section-title text-cyan-900">Live ISS Tracker</h2>
+            <div class="glass-card p-4">
+                <div id="iss-map" class="h-[500px] w-full rounded-lg"></div>
+                <div id="iss-info" class="text-center mt-4 grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+            </div>
+        </section>
+
+    </main>
+    
+    <footer class="text-center py-6 mt-12 border-t border-gray-800">
+        <p class="text-gray-500"> 🌌 RiVerse | Powered by NASA & Public APIs | Crafted by RITIK</p>
+    </footer>
+
+    <!-- Leaflet JS for Map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Firebase -->
+    <script type="module">
+        // In a real app, you would get this from your Firebase project settings
+        // For this demo, we'll use placeholder values.
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Note: Firebase features like user profiles would require a real setup.
+        // This code structure is ready for it.
+        // import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        // const app = initializeApp(firebaseConfig);
+    </script>
+
+    <!-- Main Application Logic -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const nasaApiKey = 'm65P2NhUhzydkg92Hgq11IbwTHAtWZAn8QJUpemY';
+        const sections = document.querySelectorAll('.page-section');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const apodContainer = document.getElementById('apod-container');
+        
+        let issInterval, countdownIntervals = [];
+
+        // --- SPA Navigation ---
+        const handleNavigation = (hash) => {
+            if (!hash) hash = '#home';
+            
+            // Clear intervals from previous pages
+            if (issInterval) clearInterval(issInterval);
+            countdownIntervals.forEach(clearInterval);
+            countdownIntervals = [];
+
+            sections.forEach(section => {
+                if (`#${section.id}` === hash) {
+                    section.classList.remove('hidden');
+                    // Load content for the new page
+                    loadPageContent(section.id);
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+            navLinks.forEach(link => {
+                link.classList.toggle('active', link.getAttribute('href') === hash);
+            });
+             // Close mobile menu on navigation
+            mobileMenu.classList.add('hidden');
+        };
+
+        window.addEventListener('hashchange', () => handleNavigation(window.location.hash));
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.hash = link.getAttribute('href');
+            });
+        });
+        
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // --- Content Loading ---
+        const loadPageContent = (pageId) => {
+            switch (pageId) {
+                case 'home':
+                    loadHomePage();
+                    break;
+                case 'launches':
+                    loadLaunchesPage();
+                    break;
+                case 'gallery':
+                    loadGalleryPage();
+                    break;
+                case 'iss-tracker':
+                    loadIssTrackerPage();
+                    break;
+            }
+        };
+
+        const createLoader = () => `<div class="w-full h-64 flex justify-center items-center"><div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-500 h-12 w-12"></div></div>`;
+
+        // --- Home Page ---
+        const loadHomePage = () => {
+            fetchApod();
+            fetchSpaceFact();
+            fetchLatestNews();
+        };
+
+        const fetchApod = async () => {
+            const container = document.getElementById('apod-container');
+            container.innerHTML = createLoader();
+            try {
+                const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${nasaApiKey}`);
+                const data = await res.json();
+                const mediaHtml = data.media_type === 'video'
+                    ? `<iframe class="w-full aspect-video rounded-lg" src="${data.url}" frameborder="0" allowfullscreen></iframe>`
+                    : `<img src="${data.hdurl || data.url}" alt="${data.title}" class="w-full h-auto object-cover rounded-lg shadow-lg">`;
+                container.innerHTML = `
+                    <h3 class="font-orbitron text-xl text-amber-400 mb-4">Astronomy Picture of the Day</h3>
+                    ${mediaHtml}
+                    <h4 class="font-orbitron text-lg mt-4">${data.title}</h4>
+                    <p class="text-sm text-gray-400 mt-2">${data.explanation.substring(0, 200)}...</p>
+                `;
+            } catch (error) {
+                container.innerHTML = `<p class="text-red-400">Could not load Picture of the Day.</p>`;
+            }
+        };
+
+        const fetchSpaceFact = () => {
+            const facts = [
+                "A day on Venus is longer than a year on Venus.",
+                "The sunset on Mars appears blue.",
+                "There is a planet made of diamonds twice the size of Earth.",
+                "Space is completely silent.",
+                "The Milky Way galaxy has over 100 billion stars."
+            ];
+            const fact = facts[Math.floor(Math.random() * facts.length)];
+            document.getElementById('fact-container').innerHTML = `
+                <h3 class="font-orbitron text-xl text-amber-400 mb-4">Fact of the Day</h3>
+                <p class="text-gray-300">${fact}</p>
+            `;
+        };
+
+        const fetchLatestNews = async () => {
+            const container = document.getElementById('news-container');
+            container.innerHTML = createLoader();
+            try {
+                const res = await fetch(`https://api.spaceflightnewsapi.net/v4/articles/?limit=3`);
+                const data = await res.json();
+                let newsHtml = '<h3 class="font-orbitron text-xl text-amber-400 mb-4">Latest News</h3><div class="space-y-4">';
+                data.results.forEach(article => {
+                    newsHtml += `
+                        <div>
+                            <a href="${article.url}" target="_blank" class="font-bold hover:text-cyan-400">${article.title}</a>
+                            <p class="text-sm text-gray-500">${article.news_site}</p>
+                        </div>
+                    `;
+                });
+                newsHtml += '</div>';
+                container.innerHTML = newsHtml;
+            } catch (error) {
+                container.innerHTML = `<p class="text-red-400">Could not load news.</p>`;
+            }
+        };
+
+        // --- Launches Page ---
+        const loadLaunchesPage = async () => {
+            const container = document.getElementById('launches-container');
+            container.innerHTML = createLoader();
+            try {
+                const res = await fetch(`https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=12`);
+                const data = await res.json();
+                let launchesHtml = '';
+                data.results.forEach(launch => {
+                    launchesHtml += `
+                        <div class="glass-card p-4 flex flex-col justify-between">
+                            <div>
+                                <img src="${launch.image || 'https://placehold.co/600x400/0c1425/e0e0e0?text=Launch'}" class="w-full h-48 object-cover rounded-md mb-4">
+                                <h3 class="font-orbitron text-lg font-bold">${launch.name}</h3>
+                                <p class="text-sm text-gray-400">${launch.launch_service_provider.name}</p>
+                            </div>
+                            <div class="mt-4">
+                                <div id="countdown-${launch.id}" class="text-lg font-bold text-cyan-400">Loading...</div>
+                                <p class="text-sm">${new Date(launch.window_start).toLocaleString()}</p>
+                            </div>
+                        </div>
+                    `;
+                    startCountdown(launch.id, launch.window_start);
+                });
+                container.innerHTML = launchesHtml;
+            } catch (error) {
+                container.innerHTML = `<p class="text-red-400">Could not load launch data.</p>`;
+            }
+        };
+        
+        const startCountdown = (id, date) => {
+            const countdownEl = document.getElementById(`countdown-${id}`);
+            if (!countdownEl) return;
+
+            const update = () => {
+                const now = new Date().getTime();
+                const distance = new Date(date).getTime() - now;
+
+                if (distance < 0) {
+                    countdownEl.innerHTML = "Launched!";
+                    return;
+                }
+
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                countdownEl.innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+            };
+            
+            update();
+            const interval = setInterval(update, 1000);
+            countdownIntervals.push(interval);
+        };
+
+        // --- Gallery Page ---
+        const loadGalleryPage = async (query = 'space') => {
+            const container = document.getElementById('gallery-container');
+            container.innerHTML = createLoader();
+            try {
+                const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image`);
+                const data = await res.json();
+                let galleryHtml = '';
+                data.collection.items.slice(0, 20).forEach(item => {
+                    galleryHtml += `
+                        <a href="${item.links[0].href}" data-href="${item.links[0].href}" download target="_blank" class="group relative">
+                            <img src="${item.links[0].href}" alt="${item.data[0].title}" class="w-full h-full object-cover rounded-lg aspect-square">
+                            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                                <p class="text-white text-center text-xs">${item.data[0].title}</p>
+                            </div>
+                        </a>
+                    `;
+                });
+                container.innerHTML = galleryHtml;
+            } catch (error) {
+                container.innerHTML = `<p class="text-red-400">Could not load gallery.</p>`;
+            }
+        };
+        
+        document.getElementById('gallery-search').addEventListener('search', (e) => {
+            loadGalleryPage(e.target.value || 'space');
+        });
+
+        // --- ISS Tracker Page ---
+        let issMap, issIcon, issMarker;
+        const loadIssTrackerPage = () => {
+            const mapContainer = document.getElementById('iss-map');
+            if (mapContainer && !issMap) { // Initialize map only once
+                issMap = L.map('iss-map').setView([0, 0], 2);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(issMap);
+                issIcon = L.icon({
+                    iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/International_Space_Station.svg/100px-International_Space_Station.svg.png',
+                    iconSize: [50, 50],
+                    iconAnchor: [25, 25],
+                });
+            }
+            updateIssLocation();
+            issInterval = setInterval(updateIssLocation, 5000);
+        };
+
+        const updateIssLocation = async () => {
+            try {
+                const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                const data = await res.json();
+                const lat = data.latitude;
+                const lon = data.longitude;
+
+                if (!issMarker) {
+                    issMarker = L.marker([lat, lon], {icon: issIcon}).addTo(issMap);
+                } else {
+                    issMarker.setLatLng([lat, lon]);
+                }
+                issMap.setView([lat, lon], issMap.getZoom());
+                
+                document.getElementById('iss-info').innerHTML = `
+                    <div><p class="text-gray-400">Latitude</p><p class="font-bold text-lg">${lat.toFixed(4)}</p></div>
+                    <div><p class="text-gray-400">Longitude</p><p class="font-bold text-lg">${lon.toFixed(4)}</p></div>
+                    <div><p class="text-gray-400">Altitude</p><p class="font-bold text-lg">${data.altitude.toFixed(2)} km</p></div>
+                    <div><p class="text-gray-400">Velocity</p><p class="font-bold text-lg">${data.velocity.toFixed(2)} km/h</p></div>
+                `;
+            } catch (error) {
+                document.getElementById('iss-info').innerHTML = `<p class="text-red-400 col-span-4">Could not get ISS location.</p>`;
+            }
+        };
+
+        // --- Initial Load ---
+        handleNavigation(window.location.hash);
+    });
+    </script>
+</body>
+</html>
